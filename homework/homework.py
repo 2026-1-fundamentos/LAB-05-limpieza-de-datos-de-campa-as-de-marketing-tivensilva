@@ -49,8 +49,74 @@ def clean_campaign_data():
 
 
     """
+    import glob
+    import os
 
-    return
+    import pandas as pd
+
+    input_files = glob.glob("files/input/*.csv.zip")
+    df = pd.concat(
+        (pd.read_csv(f, index_col=0) for f in input_files),
+        ignore_index=True,
+    )
+
+    os.makedirs("files/output", exist_ok=True)
+
+    client = df[
+        ["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]
+    ].copy()
+    client["job"] = client["job"].str.replace(".", "", regex=False).str.replace(
+        "-", "_", regex=False
+    )
+    client["education"] = client["education"].str.replace(".", "_", regex=False)
+    client["education"] = client["education"].replace("unknown", pd.NA)
+    client["credit_default"] = (client["credit_default"] == "yes").astype(int)
+    client["mortgage"] = (client["mortgage"] == "yes").astype(int)
+
+    campaign = df[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_campaign_contacts",
+            "previous_outcome",
+            "campaign_outcome",
+            "day",
+            "month",
+        ]
+    ].copy()
+    campaign["previous_outcome"] = (campaign["previous_outcome"] == "success").astype(
+        int
+    )
+    campaign["campaign_outcome"] = (campaign["campaign_outcome"] == "yes").astype(int)
+
+    month_map = {
+        "jan": "01",
+        "feb": "02",
+        "mar": "03",
+        "apr": "04",
+        "may": "05",
+        "jun": "06",
+        "jul": "07",
+        "aug": "08",
+        "sep": "09",
+        "oct": "10",
+        "nov": "11",
+        "dec": "12",
+    }
+    campaign["last_contact_date"] = (
+        "2022-"
+        + campaign["month"].str.lower().map(month_map)
+        + "-"
+        + campaign["day"].astype(str).str.zfill(2)
+    )
+    campaign = campaign.drop(columns=["day", "month"])
+
+    economics = df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+
+    client.to_csv("files/output/client.csv", index=False)
+    campaign.to_csv("files/output/campaign.csv", index=False)
+    economics.to_csv("files/output/economics.csv", index=False)
 
 
 if __name__ == "__main__":
